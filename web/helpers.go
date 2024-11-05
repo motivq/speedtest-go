@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,26 +46,91 @@ func getIPInfoURL(address string) string {
 	return ipInfoURL
 }
 
-func getIPInfo(addr string) results.IPInfoResponse {
+func getIPInfo(addr string, useSpeedtestNet bool) results.IPInfoResponse {
+	//var ret results.IPInfoResponse
+	log.Infof("Getting IP info for %s", addr)
+
+	if useSpeedtestNet {
+		return getSpeedTestNetInfo()
+	}
+	return getIPInfoIOData(addr)
+}
+
+func getSpeedTestNetInfo() results.IPInfoResponse {
 	var ret results.IPInfoResponse
+
+	userInfo, err := FetchUserInfo()
+	if err != nil {
+		log.Errorf("Error getting user info: %s", err)
+		return ret
+	}
+
+	log.Debugf("User info: %+v", userInfo)
+	return results.IPInfoResponse{
+		IP:           userInfo.IP,
+		Latitude:     userInfo.Lat,
+		Longitude:    userInfo.Lon,
+		Organization: userInfo.Isp,
+		Location:     fmt.Sprintf("%s,%s", userInfo.Lat, userInfo.Lon),
+	}
+}
+
+func getUserIP(httpServer *http.Request) string {
+	var userIP string
+	if len(httpServer.Header.Get("CF-Connecting-IP")) > 1 {
+		userIP = httpServer.Header.Get("CF-Connecting-IP")
+		return net.ParseIP(userIP).String()
+	} else if len(httpServer.Header.Get("X-Forwarded-For")) > 1 {
+		userIP = httpServer.Header.Get("X-Forwarded-For")
+		return net.ParseIP(userIP).String()
+	} else if len(httpServer.Header.Get("X-Real-IP")) > 1 {
+		userIP = httpServer.Header.Get("X-Real-IP")
+		return net.ParseIP(userIP).String()
+	} else {
+		userIP = httpServer.RemoteAddr
+		if strings.Contains(userIP, ":") {
+			return net.ParseIP(strings.Split(userIP, ":")[0]).String()
+		} else {
+			return net.ParseIP(userIP).String()
+		}
+	}
+}
+
+func getIPInfoIOData(addr string) results.IPInfoResponse {
+	var ret results.IPInfoResponse
+
+	// Fetch data from ipinfo.io
 	resp, err := http.DefaultClient.Get(getIPInfoURL(addr))
 	if err != nil {
 		log.Errorf("Error getting response from ipinfo.io: %s", err)
 		return ret
 	}
+	defer resp.Body.Close()
 
+	// Read response body
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("Error reading response from ipinfo.io: %s", err)
 		return ret
 	}
-	defer resp.Body.Close()
 
+	// Parse JSON response
 	if err := json.Unmarshal(raw, &ret); err != nil {
 		log.Errorf("Error parsing response from ipinfo.io: %s", err)
+		return ret
 	}
 
+	// Parse location coordinates
+	parseLocation(&ret)
 	return ret
+}
+
+func parseLocation(info *results.IPInfoResponse) {
+	parts := strings.Split(info.Location, ",")
+	if len(parts) == 2 {
+		info.Latitude = parts[0]
+		info.Longitude = parts[1]
+	}
 }
 
 func SetServerLocation(conf *config.Config) {

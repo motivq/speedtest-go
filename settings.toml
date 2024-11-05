@@ -1,7 +1,7 @@
 # bind address, use empty string to bind to all interfaces
 bind_address=""
 # backend listen port
-listen_port=8989
+listen_port=8080
 # change the base URL
 # url_base="/librespeed"
 # proxy protocol port, use 0 to disable
@@ -11,6 +11,9 @@ server_lat=1
 server_lng=1
 # ipinfo.io API key, if applicable
 ipinfo_api_key=""
+# use speedtest.net to get user info
+allow_speedtest_net=true
+allow_manually_set_ip=true
 
 # assets directory path, defaults to `assets` in the same directory
 assets_path=""

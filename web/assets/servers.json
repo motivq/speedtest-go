@@ -1,0 +1,11 @@
+
+    [
+        {
+            "name": "User friendly name",
+            "server": "http://localhost:8080/",
+            "dlURL": "garbage.php",
+            "ulURL": "empty.php",
+            "pingURL": "empty.php",
+            "getIpURL": "getIP.php"
+        }
+    ]

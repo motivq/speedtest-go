@@ -69,8 +69,8 @@ func ListenAndServe(conf *config.Config) error {
 	r.HandleFunc(conf.BaseURL+"/backend/empty", empty)
 	r.Get(conf.BaseURL+"/garbage", garbage)
 	r.Get(conf.BaseURL+"/backend/garbage", garbage)
-	r.Get(conf.BaseURL+"/getIP", getIP)
-	r.Get(conf.BaseURL+"/backend/getIP", getIP)
+	r.Get(conf.BaseURL+"/getIP", getIPHandler(conf))
+	r.Get(conf.BaseURL+"/backend/getIP", getIPHandler(conf))
 	r.Get(conf.BaseURL+"/results", results.DrawPNG)
 	r.Get(conf.BaseURL+"/results/", results.DrawPNG)
 	r.Get(conf.BaseURL+"/backend/results", results.DrawPNG)
@@ -85,12 +85,20 @@ func ListenAndServe(conf *config.Config) error {
 	r.HandleFunc(conf.BaseURL+"/backend/empty.php", empty)
 	r.Get(conf.BaseURL+"/garbage.php", garbage)
 	r.Get(conf.BaseURL+"/backend/garbage.php", garbage)
-	r.Get(conf.BaseURL+"/getIP.php", getIP)
-	r.Get(conf.BaseURL+"/backend/getIP.php", getIP)
+	r.Get(conf.BaseURL+"/getIP.php", getIPHandler(conf))
+	r.Get(conf.BaseURL+"/backend/getIP.php", getIPHandler(conf))
 	r.Post(conf.BaseURL+"/results/telemetry.php", results.Record)
 	r.Post(conf.BaseURL+"/backend/results/telemetry.php", results.Record)
 	r.HandleFunc(conf.BaseURL+"/stats.php", results.Stats)
 	r.HandleFunc(conf.BaseURL+"/backend/stats.php", results.Stats)
+
+	// servers.json - serve file from assets
+	r.Get(conf.BaseURL+"/servers.json", func(w http.ResponseWriter, r *http.Request) {
+		http.FileServer(assetFS).ServeHTTP(w, r)
+	})
+	r.Get(conf.BaseURL+"/backend/servers.json", func(w http.ResponseWriter, r *http.Request) {
+		http.FileServer(assetFS).ServeHTTP(w, r)
+	})
 
 	go listenProxyProtocol(conf, r)
 
@@ -177,13 +185,23 @@ func garbage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getIP(w http.ResponseWriter, r *http.Request) {
+func getIPHandler(conf *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		getIP(w, r, conf)
+	}
+}
+
+func getIP(w http.ResponseWriter, r *http.Request, conf *config.Config) {
 	var ret results.Result
 
-	clientIP := r.RemoteAddr
+	clientIP := getUserIP(r)
+	manuallySetIP := len(r.FormValue("ipToUse")) > 0 && conf.AllowManuallySetIP
+	if manuallySetIP {
+		clientIP = r.FormValue("ipToUse")
+	}
 	clientIP = strings.ReplaceAll(clientIP, "::ffff:", "")
 
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	ip, _, err := net.SplitHostPort(clientIP)
 	if err == nil {
 		clientIP = ip
 	}
@@ -219,12 +237,14 @@ func getIP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	getISPInfo := r.FormValue("isp") == "true"
+	useSpeedtestNet := r.FormValue("speedtestnet") == "true" && conf.AllowSpeedtestNet
+
 	distanceUnit := r.FormValue("distance")
 
 	ret.ProcessedString = clientIP
 
 	if getISPInfo {
-		ispInfo := getIPInfo(clientIP)
+		ispInfo := getIPInfo(clientIP, useSpeedtestNet)
 		ret.RawISPInfo = ispInfo
 
 		removeRegexp := regexp.MustCompile(`AS\d+\s`)

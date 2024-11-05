@@ -75,6 +75,8 @@ type Result struct {
 
 type IPInfoResponse struct {
 	IP           string `json:"ip"`
+	Latitude     string `json:"latitude"`
+	Longitude    string `json:"longitude"`
 	Hostname     string `json:"hostname"`
 	City         string `json:"city"`
 	Region       string `json:"region"`

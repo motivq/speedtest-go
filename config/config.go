@@ -6,13 +6,15 @@ import (
 )
 
 type Config struct {
-	BindAddress       string  `mapstructure:"bind_address"`
-	Port              string  `mapstructure:"listen_port"`
-	BaseURL           string  `mapstructure:"url_base"`
-	ProxyProtocolPort string  `mapstructure:"proxyprotocol_port"`
-	ServerLat         float64 `mapstructure:"server_lat"`
-	ServerLng         float64 `mapstructure:"server_lng"`
-	IPInfoAPIKey      string  `mapstructure:"ipinfo_api_key"`
+	BindAddress        string  `mapstructure:"bind_address"`
+	Port               string  `mapstructure:"listen_port"`
+	BaseURL            string  `mapstructure:"url_base"`
+	ProxyProtocolPort  string  `mapstructure:"proxyprotocol_port"`
+	ServerLat          float64 `mapstructure:"server_lat"`
+	ServerLng          float64 `mapstructure:"server_lng"`
+	IPInfoAPIKey       string  `mapstructure:"ipinfo_api_key"`
+	AllowSpeedtestNet  bool    `mapstructure:"allow_speedtest_net"`
+	AllowManuallySetIP bool    `mapstructure:"allow_manually_set_ip"`
 
 	StatsPassword string `mapstructure:"statistics_password"`
 	RedactIP      bool   `mapstructure:"redact_ip_addresses"`
@@ -53,6 +55,8 @@ func init() {
 	viper.SetDefault("database_username", "postgres")
 	viper.SetDefault("enable_tls", false)
 	viper.SetDefault("enable_http2", false)
+	viper.SetDefault("allow_speedtest_net", true)
+	viper.SetDefault("allow_manually_set_ip", true)
 
 	viper.SetConfigName("settings")
 	viper.AddConfigPath(".")
